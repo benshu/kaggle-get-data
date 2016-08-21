@@ -40,7 +40,7 @@ def login(username, password, session):
             headers = dict(referer=login_url))
     if result.status_code != 200:
         print "Login Failed"
-    if result.text.contains('incorrect'):
+    if 'incorrect' in result.text:
         print "Login Failed, check credentials"
         exit(1)
 
