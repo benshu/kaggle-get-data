@@ -1,13 +1,14 @@
-import urllib2
 import requests
 import re
 import json
 
-login_url = 'https://www.kaggle.com/account/login'
+LOGIN_URL = 'https://www.kaggle.com/account/login'
+
 
 def get_page_source(url, session):
     source = session.get(url).text
     return source
+
 
 def get_download_links(html_source):
     pattern = re.compile(ur'href="(.*download.*)" name.*\n')
@@ -15,57 +16,67 @@ def get_download_links(html_source):
     for res in results:
         yield res
 
+
 def filename_from_url(url):
     p = re.compile(ur'([^/\\&\?]+\.\w{2,3}(?=([\?&].*$|$)))')
     return re.search(p, url).group()
+
 
 def download_files(links, session):
     for link in links:
         try:
             print 'Working on: ', link
             filename = filename_from_url(link)
-            with open(filename, 'w') as f:
-                f.write(get_page_source(link, session))
+            data = session.get(link, stream=True)
+            with open(filename, 'wb') as f:
+                for chunk in data:
+                    f.write(chunk)
         except Exception as e:
             print "Exception trying to create files"
             print e
 
+
 def login(username, password, session):
-    session.get(login_url)
+    session.get(LOGIN_URL)
     payload = {'UserName': username,
-            'Password': password,
-            'JavaScriptEnabled': True}
-    result = session.post(login_url,
-            data = payload,
-            headers = dict(referer=login_url))
+               'Password': password,
+               'JavaScriptEnabled': True}
+    result = session.post(LOGIN_URL,
+                          data=payload,
+                          headers=dict(referer=LOGIN_URL))
     if result.status_code != 200:
         print "Login Failed"
     if 'incorrect' in result.text:
         print "Login Failed, check credentials"
         exit(1)
 
+
 def get_credentials():
     print 'Trying to load credentials from file...'
     import os
     if os.path.isfile('login.json'):
-        creds = json.loads(open('login.json','r').read())
+        creds = json.loads(open('login.json', 'r').read())
         return creds['username'], creds['password']
     else:
         print 'No login.json file found, please enter credentials'
         print 'kaggle.com username: '
         username = raw_input()
         from getpass import getpass
-        password = getpass( 'kaggle.com password: ') 
-        if query_yes_no('Would you like to store credentials for next use(will be store in plain text in login.json file):'):
-            f = open('login.json','w')
-            f.write(json.dumps({'username': username, 'password':password}))
+        password = getpass('kaggle.com password: ')
+        if query_yes_no(
+                'Would you like to store credentials for next use\
+                 (will be store in plain text in login.json file):'):
+            f = open('login.json', 'w')
+            f.write(json.dumps({'username': username, 'password': password}))
             f.close()
         return username, password
 
+
 def main():
-    print "This script will download all the data links in a kaggle.com project data page"
+    print "This script will download all the data links in a kaggle.com \
+            project data page"
     HOST = "https://www.kaggle.com"
-    username , password = get_credentials()
+    username, password = get_credentials()
     print "Enter the project name (example: titanic):"
     project = raw_input()
     URL = "https://www.kaggle.com/c/" + project + "/data"
@@ -73,7 +84,7 @@ def main():
     session = requests.session()
     login(username, password, session)
     source = get_page_source(URL, session)
-    links = [ HOST + x for x in get_download_links(source) ]
+    links = [HOST + x for x in get_download_links(source)]
     download_files(links, session)
 
 
